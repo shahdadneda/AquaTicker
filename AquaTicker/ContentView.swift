@@ -202,6 +202,7 @@ struct MenuCard: View {
 struct ContentView: View {
     @State private var progress: Double = 750
     @State private var goal: Double = 2000
+    @State private var showingCustomSheet = false
     
     var body: some View {
         NavigationView {
@@ -216,29 +217,78 @@ struct ContentView: View {
                             .padding(.top, 20)
                         
                         // Quick Add Buttons
-                        HStack(spacing: 16) {
-                            ForEach([100, 200, 300], id: \.self) { amount in
-                                QuickAddButton(amount: amount) {
+                        VStack(spacing: 16) {
+                            HStack(spacing: 16) {
+                                QuickAddButton(amount: 200) {
                                     withAnimation {
-                                        progress += Double(amount)
+                                        progress += 200
                                     }
                                 }
+                                
+                                QuickAddButton(amount: 300) {
+                                    withAnimation {
+                                        progress += 300
+                                    }
+                                }
+                                
+                                // Custom Amount Button
+                                Button(action: {
+                                    showingCustomSheet = true
+                                }) {
+                                    VStack {
+                                        Text("Custom")
+                                            .font(.system(.headline, design: .rounded))
+                                        Text("amount")
+                                            .font(.system(.caption, design: .rounded))
+                                    }
+                                    .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(.ultraThinMaterial)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
-                        }
-                        .padding(.horizontal)
-                        
-                        // Menu Options
-                        VStack(spacing: 12) {
+                            
+                            // Photo Button
                             NavigationLink(destination: Text("Log Water Photo")) {
-                                MenuCard(
-                                    title: "Log Water Photo",
-                                    subtitle: "Take a photo of your drink",
-                                    systemImage: "camera.fill",
-                                    iconColor: Color(red: 0.2, green: 0.6, blue: 0.9)
+                                HStack {
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(.headline))
+                                    VStack(spacing: 4) {
+                                        Text("Take Photo")
+                                            .font(.system(.headline, design: .rounded))
+                                        Text("(AI scan)")
+                                            .font(.system(.caption, design: .rounded))
+                                    }
+                                }
+                                .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.ultraThinMaterial)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
-                            
+                        }
+                        .padding(.horizontal)
+                        
+                        Spacer()
+                            .frame(height: 24)
+                        
+                        // Menu Options
+                        VStack(spacing: 12) {
                             NavigationLink(destination: Text("History")) {
                                 MenuCard(
                                     title: "History",
@@ -255,6 +305,16 @@ struct ContentView: View {
                                     subtitle: "Track your progress",
                                     systemImage: "chart.bar.fill",
                                     iconColor: Color(red: 0.3, green: 0.7, blue: 0.9)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            NavigationLink(destination: Text("Set Reminders")) {
+                                MenuCard(
+                                    title: "Reminders",
+                                    subtitle: "Schedule drinking reminders",
+                                    systemImage: "bell.fill",
+                                    iconColor: Color(red: 0.9, green: 0.6, blue: 0.3)
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
@@ -279,6 +339,11 @@ struct ContentView: View {
                             .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
                     }
                 }
+            }
+            .sheet(isPresented: $showingCustomSheet) {
+                // Custom amount sheet will go here
+                Text("Custom Amount")
+                    .presentationDetents([.height(300)])
             }
         }
     }

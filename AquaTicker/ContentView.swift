@@ -724,43 +724,65 @@ struct ContentView: View {
     private func updateStreakCount() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: currentDate)
-        
-        // Format dates for comparison
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        
-        // Get the date string for today
         let todayString = dateKey(from: today)
+        let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: today)!
+        let yesterdayString = dateKey(from: yesterdayDate)
         
-        // If today is not completed, streak is 0
-        if !completedDays.contains(todayString) {
+        // If today is already completed, count today + consecutive previous days
+        if completedDays.contains(todayString) {
+            var currentStreak = 1 // Start with today
+            var checkDate = today
+            
+            while true {
+                // Move to the previous day
+                guard let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else {
+                    break
+                }
+                checkDate = previousDay
+                
+                let checkDateString = dateKey(from: checkDate)
+                
+                // If this day isn't in our completed days, the streak is broken
+                if !completedDays.contains(checkDateString) {
+                    break
+                }
+                
+                // Increment streak
+                currentStreak += 1
+            }
+            
+            streakCount = currentStreak
+        } 
+        // If today is not completed but yesterday was, maintain yesterday's streak
+        else if completedDays.contains(yesterdayString) {
+            // Count consecutive days before yesterday
+            var currentStreak = 1 // Start with yesterday
+            var checkDate = yesterdayDate
+            
+            while true {
+                // Move to the previous day
+                guard let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else {
+                    break
+                }
+                checkDate = previousDay
+                
+                let checkDateString = dateKey(from: checkDate)
+                
+                // If this day isn't in our completed days, the streak is broken
+                if !completedDays.contains(checkDateString) {
+                    break
+                }
+                
+                // Increment streak
+                currentStreak += 1
+            }
+            
+            streakCount = currentStreak
+        } 
+        // If neither today nor yesterday has water, streak is 0
+        else {
             streakCount = 0
-            return
         }
-        
-        // If today is completed, count consecutive days working backwards
-        var currentStreak = 1 // Start with today
-        var checkDate = today
-        
-        while true {
-            // Move to the previous day
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else {
-                break
-            }
-            checkDate = previousDay
-            
-            let checkDateString = dateKey(from: checkDate)
-            
-            // If this day isn't in our completed days, the streak is broken
-            if !completedDays.contains(checkDateString) {
-                break
-            }
-            
-            // Increment streak
-            currentStreak += 1
-        }
-        
-        streakCount = currentStreak
     }
     
     // Setup a timer to check for day change at midnight

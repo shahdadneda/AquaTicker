@@ -200,6 +200,7 @@ struct DayCircleView: View {
     let day: String
     let date: Int
     let isActive: Bool
+    let hasCompletedWater: Bool
     
     var body: some View {
         VStack(spacing: 5) {
@@ -212,9 +213,11 @@ struct DayCircleView: View {
             ZStack {
                 // Background fill
                 Circle()
-                    .fill(isActive ? 
-                          Color.black.opacity(0.08) : 
-                          Color.gray.opacity(0.08))
+                    .fill(
+                        hasCompletedWater ? 
+                            Color(red: 0.95, green: 0.8, blue: 0.2).opacity(0.4) : // Gold for completed days
+                            (isActive ? Color.black.opacity(0.08) : Color.gray.opacity(0.08))
+                    )
                     .frame(width: 36, height: 36)
                 
                 // Outline for active day
@@ -229,24 +232,6 @@ struct DayCircleView: View {
                     .foregroundColor(isActive ? Color.black : Color.gray.opacity(0.7))
             }
         }
-    }
-}
-
-struct WeeklyViewRow: View {
-    @Binding var currentDay: Int
-    
-    var body: some View {
-        HStack(spacing: 18) {
-            DayCircleView(day: "F", date: 21, isActive: currentDay == 21)
-            DayCircleView(day: "S", date: 22, isActive: currentDay == 22)
-            DayCircleView(day: "S", date: 23, isActive: currentDay == 23)
-            DayCircleView(day: "M", date: 24, isActive: currentDay == 24)
-            DayCircleView(day: "T", date: 25, isActive: currentDay == 25)
-            DayCircleView(day: "W", date: 26, isActive: currentDay == 26)
-            DayCircleView(day: "T", date: 27, isActive: currentDay == 27)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
     }
 }
 
@@ -675,7 +660,140 @@ struct ContentView: View {
     @State private var progress: Double = 0
     @State private var goal: Double = 2000
     @State private var showingCustomSheet = false
-    @State private var currentDay: Int = 26 // Today is day 26
+    @State private var currentDate: Date = Date()
+    @State private var completedDays: [String] = [] // Track days where water was added using date strings
+    @State private var streakCount: Int = 0 // Track current streak
+    @State private var timer: Timer? = nil
+    
+    // Format date to a unique string key for completed days
+    private func dateKey(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+    
+    // Get day number from date
+    private func dayNumber(from date: Date) -> Int {
+        let calendar = Calendar.current
+        return calendar.component(.day, from: date)
+    }
+    
+    // Get day letter from date
+    private func dayLetter(from date: Date) -> String {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: date)
+        let weekdayLetters = ["S", "M", "T", "W", "T", "F", "S"]
+        return weekdayLetters[weekday - 1]
+    }
+    
+    // Returns array of dates for the current week
+    private func getCurrentWeekDates() -> [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: currentDate)
+        
+        // Find the start of the week (Monday)
+        var weekday = calendar.component(.weekday, from: today)
+        // Convert to 0-indexed where 0 is Monday (calendar uses 1-indexed where 1 is Sunday)
+        weekday = weekday == 1 ? 6 : weekday - 2
+        
+        guard let monday = calendar.date(byAdding: .day, value: -weekday, to: today) else {
+            return []
+        }
+        
+        // Create 7 days starting from Monday, allowing proper month transitions
+        var weekDates: [Date] = []
+        for day in 0..<7 {
+            if let date = calendar.date(byAdding: .day, value: day, to: monday) {
+                weekDates.append(date)
+            }
+        }
+        
+        return weekDates
+    }
+    
+    // Check if water was added today
+    private func markDayAsCompleted() {
+        let today = dateKey(from: currentDate)
+        if !completedDays.contains(today) {
+            completedDays.append(today)
+            updateStreakCount()
+        }
+    }
+    
+    // Update streak count based on completed days
+    private func updateStreakCount() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: currentDate)
+        
+        // Format dates for comparison
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        // Get the date string for today
+        let todayString = dateKey(from: today)
+        
+        // If today is not completed, streak is 0
+        if !completedDays.contains(todayString) {
+            streakCount = 0
+            return
+        }
+        
+        // If today is completed, count consecutive days working backwards
+        var currentStreak = 1 // Start with today
+        var checkDate = today
+        
+        while true {
+            // Move to the previous day
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else {
+                break
+            }
+            checkDate = previousDay
+            
+            let checkDateString = dateKey(from: checkDate)
+            
+            // If this day isn't in our completed days, the streak is broken
+            if !completedDays.contains(checkDateString) {
+                break
+            }
+            
+            // Increment streak
+            currentStreak += 1
+        }
+        
+        streakCount = currentStreak
+    }
+    
+    // Setup a timer to check for day change at midnight
+    private func setupMidnightTimer() {
+        // Cancel any existing timer
+        timer?.invalidate()
+        
+        // Calculate time until next midnight
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: Date())
+        components.day! += 1
+        components.hour = 0
+        components.minute = 0
+        components.second = 0
+        
+        guard let midnight = calendar.date(from: components) else { return }
+        let timeInterval = midnight.timeIntervalSince(Date())
+        
+        // Create timer
+        timer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { _ in
+            // Update to new day
+            withAnimation(.easeInOut(duration: 0.5)) {
+                // Reset progress for the new day
+                progress = 0
+                
+                // Update current date to the new day
+                currentDate = Date()
+            }
+            
+            // Schedule next timer
+            setupMidnightTimer()
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -683,6 +801,27 @@ struct ContentView: View {
                 // Light blue background - "Crumbl Blue" style
                 Color(red: 0.85, green: 0.92, blue: 0.98)
                     .ignoresSafeArea()
+                    .onLongPressGesture(minimumDuration: 2) {
+                        // Simulate moving to next day when background is long-pressed
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            // If there was water added today, mark the day as completed before advancing
+                            if progress > 0 {
+                                markDayAsCompleted()
+                            }
+                            
+                            // Advance to next day and reset progress
+                            let calendar = Calendar.current
+                            if let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) {
+                                currentDate = tomorrow
+                                progress = 0
+                                
+                                // Explicitly update streak count for the new day
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    updateStreakCount()
+                                }
+                            }
+                        }
+                    }
                 
                 VStack(spacing: 0) {
                     // App title and streak badge
@@ -698,7 +837,7 @@ struct ContentView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .foregroundColor(.orange)
-                            Text("0")
+                            Text("\(streakCount)")
                                 .fontWeight(.bold)
                         }
                         .padding(.vertical, 6)
@@ -707,14 +846,34 @@ struct ContentView: View {
                             Capsule()
                                 .fill(Color.white)
                         )
+                        .onTapGesture(count: 2) {
+                            // Double-tap to simulate day change (for testing only)
+                            NotificationCenter.default.post(name: NSNotification.Name("SimulateDayChange"), object: nil)
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.top, 10)
                     .padding(.bottom, 15)
                     
-                    // Weekly view
-                    WeeklyViewRow(currentDay: $currentDay)
-                        .padding(.bottom, 20)
+                    // Dynamic Weekly view with real dates
+                    HStack(spacing: 18) {
+                        ForEach(getCurrentWeekDates(), id: \.self) { date in
+                            let isToday = Calendar.current.isDate(currentDate, inSameDayAs: date)
+                            let day = dayLetter(from: date)
+                            let dateNum = dayNumber(from: date)
+                            let dateString = dateKey(from: date)
+                            
+                            DayCircleView(
+                                day: day,
+                                date: dateNum,
+                                isActive: isToday,
+                                hasCompletedWater: completedDays.contains(dateString)
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                    .padding(.bottom, 10)
                     
                     // Main content
                     ScrollView {
@@ -728,12 +887,14 @@ struct ContentView: View {
                                     QuickAddButton(amount: 200) {
                                         withAnimation {
                                             progress += 200
+                                            markDayAsCompleted()
                                         }
                                     }
                                     
                                     QuickAddButton(amount: 300) {
                                         withAnimation {
                                             progress += 300
+                                            markDayAsCompleted()
                                         }
                                     }
                                     
@@ -761,19 +922,14 @@ struct ContentView: View {
                                 
                                 // Photo Button
                                 NavigationLink(destination: Text("Log Water Photo").navigationTitle("Log Water Photo")) {
-                                    HStack {
-                                        Image(systemName: "camera.fill")
-                                            .font(.system(size: 20, weight: .semibold))
+                                    VStack(spacing: 4) {
+                                        Text("Take Photo")
+                                            .font(.system(.headline, design: .rounded))
+                                            .fontWeight(.bold)
                                             .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                                        VStack(spacing: 4) {
-                                            Text("Take Photo")
-                                                .font(.system(.headline, design: .rounded))
-                                                .fontWeight(.bold)
-                                                .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                                            Text("(AI scan)")
-                                                .font(.system(.caption, design: .rounded))
-                                                .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
-                                        }
+                                        Text("(AI scan)")
+                                            .font(.system(.caption, design: .rounded))
+                                            .foregroundColor(Color(red: 0.1, green: 0.2, blue: 0.4))
                                     }
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
@@ -833,6 +989,45 @@ struct ContentView: View {
         .sheet(isPresented: $showingCustomSheet) {
             CustomAmountView(isPresented: $showingCustomSheet, waterAmount: $progress)
                 .presentationDetents([.height(500)])
+                .onDisappear {
+                    if progress > 0 {
+                        markDayAsCompleted()
+                    }
+                }
+        }
+        .onAppear {
+            // Set up timer for midnight day change
+            setupMidnightTimer()
+            
+            // No pre-populated streak data
+            // The streak will start at 0 and increase as the user adds water
+            
+            // Ensure streak counter is correctly initialized to 0
+            updateStreakCount()
+            
+            // For testing only - allow testing day change by double-tapping the streak counter
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("SimulateDayChange"), object: nil, queue: .main) { _ in
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    // If there was water added today, mark the day as completed before advancing
+                    if progress > 0 {
+                        markDayAsCompleted()
+                    }
+                    
+                    // Advance to next day and reset progress
+                    let calendar = Calendar.current
+                    if let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) {
+                        currentDate = tomorrow
+                        progress = 0
+                        // Ensure streak is updated for the new day
+                        updateStreakCount()
+                    }
+                }
+            }
+        }
+        .onDisappear {
+            // Clean up timer when view disappears
+            timer?.invalidate()
+            timer = nil
         }
     }
 }

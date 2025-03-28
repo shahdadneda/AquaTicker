@@ -1017,6 +1017,7 @@ struct ContentView: View {
                     }
                 }
         }
+        .preferredColorScheme(.light) // Force light mode
         .onAppear {
             // Set up timer for midnight day change
             setupMidnightTimer()

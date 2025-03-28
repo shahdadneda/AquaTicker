@@ -879,6 +879,21 @@ struct ContentView: View {
                         Text("AquaTicker")
                             .font(.system(size: 28, weight: .black, design: .rounded))
                             .foregroundColor(.black)
+                            .onLongPressGesture(minimumDuration: 2) {
+                                // Reset all stored data
+                                progress = 0
+                                streakCount = 0
+                                completedDays = []
+                                saveCompletedDays()
+                                currentDate = Date()
+                                currentDateString = currentDate.ISO8601Format()
+                                
+                                // Provide haptic feedback
+                                #if os(iOS)
+                                let notificationFeedback = UINotificationFeedbackGenerator()
+                                notificationFeedback.notificationOccurred(.success)
+                                #endif
+                            }
                         
                         Spacer()
                         

@@ -190,7 +190,8 @@ struct MenuCard: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(red: 0.9, green: 0.95, blue: 1.0))
+                .fill(Color(red: 0.96, green: 0.96, blue: 0.98))
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
@@ -820,30 +821,33 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Light blue background - "Crumbl Blue" style
-                Color(red: 0.85, green: 0.92, blue: 0.98)
-                    .ignoresSafeArea()
-                    .onLongPressGesture(minimumDuration: 2) {
-                        // Simulate moving to next day when background is long-pressed
-                        withAnimation(.easeInOut(duration: 0.5)) {
-                            // If there was water added today, mark the day as completed before advancing
-                            if progress > 0 {
-                                markDayAsCompleted()
-                            }
-                            
-                            // Advance to next day and reset progress
-                            let calendar = Calendar.current
-                            if let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) {
-                                currentDate = tomorrow
-                                progress = 0
-                                
-                                // Explicitly update streak count for the new day
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    updateStreakCount()
-                                }
-                            }
-                        }
-                    }
+                // Enhanced background with multi-layer effects
+                ZStack {
+                    // Base gradient
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color(red: 0.88, green: 0.94, blue: 0.98), // Light blue at top
+                            Color(red: 0.85, green: 0.86, blue: 0.96)  // Very subtle purple tint at bottom
+                        ]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    
+                    // Subtle top-left highlight
+                    Circle()
+                        .fill(Color.white.opacity(0.3))
+                        .frame(width: 300, height: 300)
+                        .blur(radius: 60)
+                        .offset(x: -100, y: -150)
+                    
+                    // Subtle bottom-right accent
+                    Circle()
+                        .fill(Color(red: 0.83, green: 0.84, blue: 0.95).opacity(0.2))
+                        .frame(width: 250, height: 250)
+                        .blur(radius: 50)
+                        .offset(x: 150, y: 200)
+                }
+                .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // App title and streak badge

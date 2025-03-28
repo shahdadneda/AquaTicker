@@ -447,22 +447,28 @@ struct CustomAmountView: View {
                 Button(action: {
                     showingNumberPad = true
                 }) {
-                    VStack {
-                        Text("\(Int(displayValue))")
-                            .font(.system(size: 52, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
-                            .animation(.easeInOut(duration: 0.2), value: displayValue)
+                    VStack(spacing: 2) {
+                        HStack(spacing: 8) {
+                            Spacer()
+                            Text("\(Int(displayValue))")
+                                .font(.system(size: 52, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+                                .animation(.easeInOut(duration: 0.2), value: displayValue)
+                            
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
+                                .offset(x: 2, y: 2)
+                            Spacer()
+                        }
+                        .offset(x: 12) // Move entire HStack to the right
                         
                         Text("ml")
                             .font(.system(size: 24, design: .rounded))
                             .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
                     }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white.opacity(0.5))
-                            .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
                 }
             }
             .frame(width: 240, height: 240)

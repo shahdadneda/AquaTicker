@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  AquaTicker
 //
-//  Created by Shahdad Neda on 2025-03-26.
+//  Created by Shahdad Neda on 2025-03-25.
 //
 
 import SwiftUI
@@ -658,12 +658,13 @@ struct NumberPadView: View {
 }
 
 struct ContentView: View {
-    @State private var progress: Double = 0
-    @State private var goal: Double = 2000
+    @AppStorage("progress") private var progress: Double = 0
+    @AppStorage("goal") private var goal: Double = 2000
+    @AppStorage("streakCount") private var streakCount: Int = 0
     @State private var showingCustomSheet = false
+    @AppStorage("currentDate") private var currentDateString: String = Date().ISO8601Format()
     @State private var currentDate: Date = Date()
-    @State private var completedDays: [String] = [] // Track days where water was added using date strings
-    @State private var streakCount: Int = 0 // Track current streak
+    @State private var completedDays: [String] = [] // Will be loaded from UserDefaults
     @State private var timer: Timer? = nil
     
     // Format date to a unique string key for completed days
@@ -712,11 +713,32 @@ struct ContentView: View {
         return weekDates
     }
     
-    // Check if water was added today
+    // Add functions for data persistence
+    private func saveCompletedDays() {
+        if let encoded = try? JSONEncoder().encode(completedDays) {
+            UserDefaults.standard.set(encoded, forKey: "completedDays")
+        }
+    }
+    
+    private func loadCompletedDays() {
+        if let savedDays = UserDefaults.standard.data(forKey: "completedDays"),
+           let decodedDays = try? JSONDecoder().decode([String].self, from: savedDays) {
+            completedDays = decodedDays
+        }
+    }
+    
+    private func updateCurrentDate() {
+        if let date = ISO8601DateFormatter().date(from: currentDateString) {
+            currentDate = date
+        }
+    }
+    
+    // Modify markDayAsCompleted to save data
     private func markDayAsCompleted() {
         let today = dateKey(from: currentDate)
         if !completedDays.contains(today) {
             completedDays.append(today)
+            saveCompletedDays() // Save after modification
             updateStreakCount()
         }
     }
@@ -786,12 +808,10 @@ struct ContentView: View {
         }
     }
     
-    // Setup a timer to check for day change at midnight
+    // Update setupMidnightTimer to handle persistence
     private func setupMidnightTimer() {
-        // Cancel any existing timer
         timer?.invalidate()
         
-        // Calculate time until next midnight
         let calendar = Calendar.current
         var components = calendar.dateComponents([.year, .month, .day], from: Date())
         components.day! += 1
@@ -802,18 +822,21 @@ struct ContentView: View {
         guard let midnight = calendar.date(from: components) else { return }
         let timeInterval = midnight.timeIntervalSince(Date())
         
-        // Create timer
         timer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: false) { _ in
-            // Update to new day
             withAnimation(.easeInOut(duration: 0.5)) {
-                // Reset progress for the new day
-                progress = 0
+                if progress > 0 {
+                    markDayAsCompleted()
+                }
                 
-                // Update current date to the new day
-                currentDate = Date()
+                // Update stored date
+                let newDate = Date()
+                currentDate = newDate
+                currentDateString = newDate.ISO8601Format()
+                
+                // Reset progress for new day
+                progress = 0
             }
             
-            // Schedule next timer
             setupMidnightTimer()
         }
     }
@@ -872,8 +895,30 @@ struct ContentView: View {
                             Capsule()
                                 .fill(Color.white)
                         )
+                        .onLongPressGesture(minimumDuration: 2) {
+                            // Simulate moving to next day when background is long-pressed
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                // If there was water added today, mark the day as completed before advancing
+                                if progress > 0 {
+                                    markDayAsCompleted()
+                                }
+                                
+                                // Advance to next day and reset progress
+                                let calendar = Calendar.current
+                                if let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) {
+                                    currentDate = tomorrow
+                                    currentDateString = tomorrow.ISO8601Format()
+                                    progress = 0
+                                    
+                                    // Explicitly update streak count for the new day
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        updateStreakCount()
+                                    }
+                                }
+                            }
+                        }
                         .onTapGesture(count: 2) {
-                            // Double-tap to simulate day change (for testing only)
+                            // Keep the double-tap functionality as well
                             NotificationCenter.default.post(name: NSNotification.Name("SimulateDayChange"), object: nil)
                         }
                     }
@@ -1023,36 +1068,46 @@ struct ContentView: View {
         }
         .preferredColorScheme(.light) // Force light mode
         .onAppear {
+            // Load saved data
+            loadCompletedDays()
+            updateCurrentDate()
+            
             // Set up timer for midnight day change
             setupMidnightTimer()
             
-            // No pre-populated streak data
-            // The streak will start at 0 and increase as the user adds water
-            
-            // Ensure streak counter is correctly initialized to 0
+            // Update streak count
             updateStreakCount()
+            
+            // Check if we need to reset progress (if it's a new day)
+            let calendar = Calendar.current
+            if !calendar.isDate(currentDate, inSameDayAs: Date()) {
+                progress = 0
+                currentDate = Date()
+                currentDateString = currentDate.ISO8601Format()
+            }
             
             // For testing only - allow testing day change by double-tapping the streak counter
             NotificationCenter.default.addObserver(forName: NSNotification.Name("SimulateDayChange"), object: nil, queue: .main) { _ in
                 withAnimation(.easeInOut(duration: 0.5)) {
-                    // If there was water added today, mark the day as completed before advancing
                     if progress > 0 {
                         markDayAsCompleted()
                     }
                     
-                    // Advance to next day and reset progress
                     let calendar = Calendar.current
                     if let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) {
                         currentDate = tomorrow
+                        currentDateString = tomorrow.ISO8601Format()
                         progress = 0
-                        // Ensure streak is updated for the new day
                         updateStreakCount()
                     }
                 }
             }
         }
         .onDisappear {
-            // Clean up timer when view disappears
+            // Save any pending changes
+            saveCompletedDays()
+            
+            // Clean up timer
             timer?.invalidate()
             timer = nil
         }

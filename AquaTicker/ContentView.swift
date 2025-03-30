@@ -139,7 +139,15 @@ struct QuickAddButton: View {
     let action: () -> Void
     
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            // Provide haptic feedback
+            #if os(iOS)
+            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            impactFeedback.impactOccurred()
+            #endif
+            
+            action()
+        }) {
             VStack {
                 Text("+\(amount)")
                     .font(.system(.headline, design: .rounded))

@@ -462,6 +462,7 @@ struct CustomAmountView: View {
                                 .font(.system(size: 52, weight: .bold, design: .rounded))
                                 .foregroundColor(Color(red: 0.2, green: 0.3, blue: 0.5))
                                 .animation(.easeInOut(duration: 0.2), value: displayValue)
+                                .animation(.easeInOut(duration: 0.2), value: displayValue)
                             
                             Image(systemName: "pencil.circle.fill")
                                 .font(.system(size: 24))
